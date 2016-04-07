@@ -20,8 +20,11 @@ class TestXmlConversion:
     # noinspection PyPep8Naming
     def test_get_vDeflection_channel_number(self, java_prop):
         props = Properties(file_path=java_prop)
-        channel = props.get_vDeflection_channel_number()
-        assert channel == "1"
+        channel = props.get_channel_numbers()
+        assert channel["vDeflection"] == "1"
+        assert channel["hDeflection"] == "2"
+        assert channel["height"] == "0"
+        assert channel["capacitiveSensorHeight"] == "3"
 
     def test_extract_factors(self, java_prop):
         props = Properties(file_path=java_prop)

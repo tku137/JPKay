@@ -14,7 +14,8 @@ class Properties:
         self.java_props = JavaProperties()
         self.load_java_props()
 
-        self.vDeflection_channel_number = self.get_vDeflection_channel_number()
+        # set vDeflection channel number, always extract freshly because channel numbering seems to be inconsistent
+        self.channel_numbers = self.get_channel_numbers()
 
         self.conversion_factors = {}
         self.extract_conversion_factors()
@@ -27,15 +28,31 @@ class Properties:
             self.java_props.load(property_file)
 
     # noinspection PyPep8Naming
-    def get_vDeflection_channel_number(self):
-        vertical_deflection_channel = None
+    def get_channel_numbers(self):
+        """
+        Extracts the channel numbers for each channel.
+
+        :return: dictionary with channel numbers
+        :rtype: dict
+        """
+        channel_numbers = {"vDeflection": None, "hDeflection": None, "height": None, "capacitiveSensorHeight": None}
         for key, value in self.java_props.get_property_dict().items():
             if value == "vDeflection":
-                vertical_deflection_channel = re.search(r'(?<=lcd-info\.)\d(?=\.channel.name)', key).group()
-        return vertical_deflection_channel
+                channel_numbers[value] = re.search(r'(?<=lcd-info\.)\d(?=\.channel.name)', key).group()
+            if value == "hDeflection":
+                channel_numbers[value] = re.search(r'(?<=lcd-info\.)\d(?=\.channel.name)', key).group()
+            if value == "height":
+                channel_numbers[value] = re.search(r'(?<=lcd-info\.)\d(?=\.channel.name)', key).group()
+            if value == "capacitiveSensorHeight":
+                channel_numbers[value] = re.search(r'(?<=lcd-info\.)\d(?=\.channel.name)', key).group()
+        return channel_numbers
 
     def extract_conversion_factors(self):
-        channel = "lcd-info.{}.".format(self.vDeflection_channel_number)
+        """
+        Extracts all conversion factors for the raw data channels. Currently, only vDeflection channel is
+        extracted, because it is the only one calibrated during AFM measurements
+        """
+        channel = "lcd-info.{}.".format(self.channel_numbers["vDeflection"])
         encoder = "{}encoder.scaling.".format(channel)
         conversion = "{}conversion-set.conversion.".format(channel)
 
