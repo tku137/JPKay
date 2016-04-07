@@ -6,24 +6,47 @@ from pyjavaprops.javaproperties import JavaProperties
 
 
 class Properties:
+    """
+    Object to automatically extract and conveniently use relevant JPK force file header information.
+
+    This comprises things like conversion factors for raw data, units, and so on
+
+    - **attributes**::
+
+    vDeflection_channel_number: internal number of vDeflection channel raw data
+    conversion_factors: dictionary containing important information
+    units: dictionary containing channel units
+
+    - **example usage**::
+    >>> from JPKay.data_io.property_reader import Properties
+    >>> prop_file = r"path/to/header.properties"
+    >>> props = Properties(file_path=prop_file)
+    >>> print(props.units["vDeflection"])
+    V
+    >>> print(props.conversion_factors["vDeflection"]["force multiplier"])
+    0.01529211140472191
+    """
 
     def __init__(self, file_path):
 
+        # parse file path to header.properties file
         self.file_path = file_path
 
+        # load the property file (you have to instantiate and load subsequently)
         self.java_props = JavaProperties()
         self.load_java_props()
 
         # set vDeflection channel number, always extract freshly because channel numbering seems to be inconsistent
         self.channel_numbers = self.get_channel_numbers()
 
+        # extract raw conversion factors and other specifications like units and the lik
         self.conversion_factors = {}
         self.extract_conversion_factors()
-
         self.units = {}
         self.extract_specs()
 
     def load_java_props(self):
+        """This actually loads the props file on disk to the JavaProperties object"""
         with open(self.file_path, encoding='utf-8') as property_file:
             self.java_props.load(property_file)
 
@@ -72,4 +95,5 @@ class Properties:
 
     # noinspection SpellCheckingInspection
     def extract_specs(self):
+        """Extracts any kind of infos from the header, like units and the like"""
         self.units["vDeflection"] = self.java_props["lcd-info.1.conversion-set.conversion.force.scaling.unit.unit"]
