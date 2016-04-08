@@ -1,8 +1,9 @@
 # coding=utf-8
 
 import re
-
-from pyjavaprops.javaproperties import JavaProperties
+from zipfile import ZipFile
+import dateutil.parser as parser
+import pytz
 
 
 class Properties:
@@ -19,8 +20,8 @@ class Properties:
 
     - **example usage**::
     >>> from JPKay.data_io.property_reader import Properties
-    >>> prop_file = r"path/to/header.properties"
-    >>> props = Properties(file_path=prop_file)
+    >>> force_file = r"path/to/jpk-force-file"
+    >>> props = Properties(file_path=force_file)
     >>> print(props.units["vDeflection"])
     V
     >>> print(props.conversion_factors["vDeflection"]["force multiplier"])
@@ -33,8 +34,7 @@ class Properties:
         self.file_path = file_path
 
         # load the property file (you have to instantiate and load subsequently)
-        self.java_props = JavaProperties()
-        self.load_java_props()
+        self.prop_dict = self.load_java_props()
 
         # set vDeflection channel number, always extract freshly because channel numbering seems to be inconsistent
         self.channel_numbers = self.get_channel_numbers()
@@ -46,9 +46,31 @@ class Properties:
         self.extract_specs()
 
     def load_java_props(self):
-        """This actually loads the props file on disk to the JavaProperties object"""
-        with open(self.file_path, encoding='utf-8') as property_file:
-            self.java_props.load(property_file)
+        """
+        This actually loads the props file on disk from jpk-force zip-file. Parses all java-properties info and the
+        timestamp from the header of the header.
+
+        :return: props dictionary
+        :rtype: dict
+        """
+
+        # load root header.properties file from zipfile
+        with ZipFile(self.file_path) as zip_file:
+            with zip_file.open('shared-data/header.properties') as prop_file:
+                prop_content = [line.decode() for line in prop_file.read().splitlines()]
+
+        # parse prop dictionary (without header date)
+        props = {}
+        for line in prop_content[1:]:
+            key, value = line.split("=")
+            props[key] = value
+
+        # parse measurement date-time
+        fmt = '%Y-%m-%d %H:%M:%S %Z%z'
+        utc = pytz.utc
+        props["timestamp"] = utc.localize(parser.parse(prop_content[0][1:], dayfirst=True)).strftime(fmt)
+
+        return props
 
     # noinspection PyPep8Naming
     def get_channel_numbers(self):
@@ -59,7 +81,7 @@ class Properties:
         :rtype: dict
         """
         channel_numbers = {"vDeflection": None, "hDeflection": None, "height": None, "capacitiveSensorHeight": None}
-        for key, value in self.java_props.get_property_dict().items():
+        for key, value in self.prop_dict.items():
             if value == "vDeflection":
                 channel_numbers[value] = re.search(r'(?<=lcd-info\.)\d(?=\.channel.name)', key).group()
             if value == "hDeflection":
@@ -81,19 +103,19 @@ class Properties:
 
         self.conversion_factors["vDeflection"] = {}
         self.conversion_factors["vDeflection"]["raw multiplier"] = \
-            self.java_props["{}multiplier".format(encoder)]
+            self.prop_dict["{}multiplier".format(encoder)]
         self.conversion_factors["vDeflection"]["raw offset"] = \
-            self.java_props["{}offset".format(encoder)]
+            self.prop_dict["{}offset".format(encoder)]
         self.conversion_factors["vDeflection"]["distance multiplier"] = \
-            self.java_props["{}distance.scaling.multiplier".format(conversion)]
+            self.prop_dict["{}distance.scaling.multiplier".format(conversion)]
         self.conversion_factors["vDeflection"]["distance offset"] = \
-            self.java_props["{}distance.scaling.offset".format(conversion)]
+            self.prop_dict["{}distance.scaling.offset".format(conversion)]
         self.conversion_factors["vDeflection"]["force multiplier"] = \
-            self.java_props["{}force.scaling.multiplier".format(conversion)]
+            self.prop_dict["{}force.scaling.multiplier".format(conversion)]
         self.conversion_factors["vDeflection"]["force offset"] = \
-            self.java_props["{}force.scaling.offset".format(conversion)]
+            self.prop_dict["{}force.scaling.offset".format(conversion)]
 
     # noinspection SpellCheckingInspection
     def extract_specs(self):
         """Extracts any kind of infos from the header, like units and the like"""
-        self.units["vDeflection"] = self.java_props["lcd-info.1.conversion-set.conversion.force.scaling.unit.unit"]
+        self.units["vDeflection"] = self.prop_dict["lcd-info.1.conversion-set.conversion.force.scaling.unit.unit"]

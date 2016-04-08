@@ -6,7 +6,7 @@ import os
 
 @pytest.fixture(scope='session')
 def java_prop():
-    return os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "header.properties")
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "sample.jpk-force")
 
 
 @pytest.fixture(scope='session')

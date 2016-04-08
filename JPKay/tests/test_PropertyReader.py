@@ -12,7 +12,7 @@ class TestXmlConversion:
 
     def test_load_java_props(self, java_prop, java_prop_dict):
         props = Properties(file_path=java_prop)
-        loaded_props = props.java_props.get_property_dict()
+        loaded_props = props.prop_dict
         with open(java_prop_dict) as infile:
             original_props = json.load(infile)
         assert original_props == loaded_props
