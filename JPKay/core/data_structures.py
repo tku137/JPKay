@@ -1,9 +1,84 @@
 # coding=utf-8
 
+import os
 import re
 from zipfile import ZipFile
 import dateutil.parser as parser
 import pytz
+from struct import unpack
+import numpy as np
+
+
+class ForceArchive:
+    """
+    Object to handle reading contents of a jpk-force zipped file.
+
+    - **Methods**::
+
+    - ls: list archive contents
+    - read_properties: read utf-8 string decoded content of a property file, one property per list entry
+    - read_data: read encoded raw data, must be converted to appropriate physical quantity!
+    """
+
+    # noinspection SpellCheckingInspection
+    def __init__(self, file_path):
+        self._zip_file = ZipFile(file_path)
+        if not self.read_properties('header.properties')[1] == 'jpk-data-file=spm-forcefile':
+            raise ValueError("not a valid spm-forcefile!")
+        self.contents = self.ls()
+
+    def ls(self):
+        """List all files contained in this force-archive"""
+        return self._zip_file.infolist()
+
+    def read_properties(self, content_path):
+        """
+        Reads a property file form the force-archive.
+
+        The contents of the property file are elements of a list. Each entry is already decoded to utf-8.
+
+        :param content_path: internal path to the force-archive file
+        :type content_path: str
+        :return: property list
+        :rtype: list[str]
+        """
+
+        if not os.path.basename(content_path).endswith(".properties"):
+            raise ValueError("this content path is not a property file")
+
+        try:
+            with self._zip_file.open(content_path) as file:
+                content = [line.decode('utf-8') for line in file.read().splitlines()]
+            return content
+        except IOError:
+            print("can't read property file")
+
+    def read_data(self, content_path):
+        """
+        Reads the raw integer-encoded data of the specified data file inside a force-archive.
+
+        :param content_path: internal path to the force-archive file
+        :type content_path: str
+        :return: raw data
+        :rtype: np.ndarray
+        """
+
+        if not os.path.basename(content_path).endswith(".dat"):
+            raise ValueError("this content path is not a data file")
+
+        try:
+            # read binary data
+            data = self._zip_file.read(content_path)
+
+            # decode using big-endian integer
+            result = []
+            for i in range(int(len(data) / 4)):
+                result.append(unpack('!i', data[i * 4:(i + 1) * 4]))
+
+            # returning integer-encoded raw data vector
+            return np.array(result)
+        except IOError:
+            print("can't read data file")
 
 
 class Properties:
@@ -55,9 +130,7 @@ class Properties:
         """
 
         # load root header.properties file from zipfile
-        with ZipFile(self.file_path) as zip_file:
-            with zip_file.open('shared-data/header.properties') as prop_file:
-                prop_content = [line.decode() for line in prop_file.read().splitlines()]
+        prop_content = ForceArchive(self.file_path).read_properties('shared-data/header.properties')
 
         # parse prop dictionary (without header date)
         props = {}
