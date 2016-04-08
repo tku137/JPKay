@@ -5,7 +5,7 @@ import os
 
 
 @pytest.fixture(scope='session')
-def java_prop():
+def sample_force_file():
     return os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "sample.jpk-force")
 
 
