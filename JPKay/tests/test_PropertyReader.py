@@ -3,7 +3,7 @@
 import pytest
 import json
 
-from JPKay.data_io.property_reader import Properties
+from JPKay.core.data_structures import Properties
 
 
 # noinspection PyShadowingNames
