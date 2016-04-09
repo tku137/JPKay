@@ -3,6 +3,8 @@
 import pytest
 import json
 
+from numpy import array
+
 from JPKay.core.data_structures import Properties
 
 
@@ -29,12 +31,12 @@ class TestXmlConversion:
     def test_extract_factors(self, sample_force_file):
         props = Properties(file_path=sample_force_file)
         props.extract_conversion_factors()
-        assert props.conversion_factors["vDeflection"]["raw multiplier"] == "5.525411033343059E-9"
-        assert props.conversion_factors["vDeflection"]["raw offset"] == "-6.075877326676198E-4"
-        assert props.conversion_factors["vDeflection"]["distance multiplier"] == "7.730641603896163E-8"
-        assert props.conversion_factors["vDeflection"]["distance offset"] == "0.0"
-        assert props.conversion_factors["vDeflection"]["force multiplier"] == "0.01529211140472191"
-        assert props.conversion_factors["vDeflection"]["force offset"] == "0.0"
+        assert props.conversion_factors["vDeflection"]["raw multiplier"] == array(float("5.525411033343059E-9"))
+        assert props.conversion_factors["vDeflection"]["raw offset"] == array(float("-6.075877326676198E-4"))
+        assert props.conversion_factors["vDeflection"]["distance multiplier"] == array(float("7.730641603896163E-8"))
+        assert props.conversion_factors["vDeflection"]["distance offset"] == array(float("0.0"))
+        assert props.conversion_factors["vDeflection"]["force multiplier"] == array(float("0.01529211140472191"))
+        assert props.conversion_factors["vDeflection"]["force offset"] == array(float("0.0"))
 
     def test_extract_specs(self, sample_force_file):
         props = Properties(file_path=sample_force_file)

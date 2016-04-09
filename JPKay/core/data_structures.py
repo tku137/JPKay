@@ -167,29 +167,60 @@ class Properties:
                 channel_numbers[value] = re.search(r'(?<=lcd-info\.)\d(?=\.channel.name)', key).group()
         return channel_numbers
 
+    # noinspection PyPep8Naming
     def extract_conversion_factors(self):
         """
         Extracts all conversion factors for the raw data channels. Currently, only vDeflection channel is
         extracted, because it is the only one calibrated during AFM measurements
-        """
-        channel = "lcd-info.{}.".format(self.channel_numbers["vDeflection"])
-        encoder = "{}encoder.scaling.".format(channel)
-        conversion = "{}conversion-set.conversion.".format(channel)
 
-        factors = {"vDeflection": {}}
-        factors["vDeflection"]["raw multiplier"] = self.general["{}multiplier".format(encoder)]
-        factors["vDeflection"]["raw offset"] = self.general["{}offset".format(encoder)]
-        factors["vDeflection"]["distance multiplier"] = self.general["{}distance.scaling.multiplier".format(conversion)]
-        factors["vDeflection"]["distance offset"] = self.general["{}distance.scaling.offset".format(conversion)]
-        factors["vDeflection"]["force multiplier"] = self.general["{}force.scaling.multiplier".format(conversion)]
-        factors["vDeflection"]["force offset"] = self.general["{}force.scaling.offset".format(conversion)]
+        :return: dict with conversion factors
+        :rtype: dict[np.ndarray]
+        """
+
+        # get some info to reduce ridiculously long java-prop names
+        vDeflection_channel = "lcd-info.{}.".format(self.channel_numbers["vDeflection"])
+        vDeflection_encoder = "{}encoder.scaling.".format(vDeflection_channel)
+        vDeflection_conversion = "{}conversion-set.conversion.".format(vDeflection_channel)
+
+        height_channel = "lcd-info.{}.".format(self.channel_numbers["height"])
+        height_encoder = "{}encoder.scaling.".format(height_channel)
+        height_conversion = "{}conversion-set.conversion.".format(height_channel)
+
+        factors = {"vDeflection": {}, "height": {}}
+
+        # parse vDeflection conversion factors
+        factors["vDeflection"]["raw multiplier"] = \
+            np.array(float(self.general["{}multiplier".format(vDeflection_encoder)]))
+        factors["vDeflection"]["raw offset"] = np.array(float(self.general["{}offset".format(vDeflection_encoder)]))
+        factors["vDeflection"]["distance multiplier"] = \
+            np.array(float(self.general["{}distance.scaling.multiplier".format(vDeflection_conversion)]))
+        factors["vDeflection"]["distance offset"] = \
+            np.array(float(self.general["{}distance.scaling.offset".format(vDeflection_conversion)]))
+        factors["vDeflection"]["force multiplier"] = \
+            np.array(float(self.general["{}force.scaling.multiplier".format(vDeflection_conversion)]))
+        factors["vDeflection"]["force offset"] = \
+            np.array(float(self.general["{}force.scaling.offset".format(vDeflection_conversion)]))
+
+        # parse height conversion factors
+        factors["height"]["raw multiplier"] = np.array(float(self.general["{}multiplier".format(height_encoder)]))
+        factors["height"]["raw offset"] = np.array(float(self.general["{}offset".format(height_encoder)]))
+        factors["height"]["calibrated multiplier"] = \
+            np.array(float(self.general["{}nominal.scaling.multiplier".format(height_conversion)]))
+        factors["height"]["calibrated offset"] = \
+            np.array(float(self.general["{}nominal.scaling.offset".format(height_conversion)]))
 
         return factors
 
-    # noinspection SpellCheckingInspection
+    # noinspection SpellCheckingInspection,PyPep8Naming
     def extract_specs(self):
         """Extracts any kind of infos from the header, like units and the like"""
-        self.units["vDeflection"] = self.general["lcd-info.1.conversion-set.conversion.force.scaling.unit.unit"]
+        vDeflection_unit = "lcd-info.{}.conversion-set.conversion.force.scaling.unit.unit".format(
+            self.channel_numbers["vDeflection"])
+        self.units["vDeflection"] = self.general[vDeflection_unit]
+
+        height_unit = "lcd-info.{}.conversion-set.conversion.nominal.scaling.unit.unit".format(
+            self.channel_numbers["height"])
+        self.units["height"] = self.general[height_unit]
 
     def extract_segment_props(self):
         props = {}
