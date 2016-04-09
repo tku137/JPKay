@@ -23,7 +23,7 @@ class ForceArchive:
     # noinspection SpellCheckingInspection
     def __init__(self, file_path):
         self._zip_file = ZipFile(file_path)
-        if not self.read_properties('header.properties')[1] == 'jpk-data-file=spm-forcefile':
+        if not self.read_properties('header.properties')['jpk-data-file'] == 'spm-forcefile':
             raise ValueError("not a valid spm-forcefile!")
         self.contents = self.ls()
 
@@ -40,7 +40,7 @@ class ForceArchive:
         :param content_path: internal path to the force-archive file
         :type content_path: str
         :return: property list
-        :rtype: list[str]
+        :rtype: dict
         """
 
         if not os.path.basename(content_path).endswith(".properties"):
@@ -49,7 +49,20 @@ class ForceArchive:
         try:
             with self._zip_file.open(content_path) as file:
                 content = [line.decode('utf-8') for line in file.read().splitlines()]
-            return content
+
+            # parse prop dictionary (without header date)
+            props = {}
+            for line in content[1:]:
+                key, value = line.split("=")
+                props[key] = value
+
+            # parse measurement date-time
+            fmt = '%Y-%m-%d %H:%M:%S %Z%z'
+            utc = pytz.utc
+            props["timestamp"] = utc.localize(parser.parse(content[0][1:], dayfirst=True)).strftime(fmt)
+
+            return props
+
         except IOError:
             print("can't read property file")
 
@@ -109,7 +122,8 @@ class Properties:
         self.file_path = file_path
 
         # load the property file (you have to instantiate and load subsequently)
-        self.prop_dict = self.load_java_props()
+        self.general = self.load_general_props()
+        self.segments = self.extract_segment_props()
 
         # set vDeflection channel number, always extract freshly because channel numbering seems to be inconsistent
         self.channel_numbers = self.get_channel_numbers()
@@ -120,7 +134,7 @@ class Properties:
         self.units = {}
         self.extract_specs()
 
-    def load_java_props(self):
+    def load_general_props(self):
         """
         This actually loads the props file on disk from jpk-force zip-file. Parses all java-properties info and the
         timestamp from the header of the header.
@@ -129,21 +143,10 @@ class Properties:
         :rtype: dict
         """
 
-        # load root header.properties file from zipfile
-        prop_content = ForceArchive(self.file_path).read_properties('shared-data/header.properties')
-
-        # parse prop dictionary (without header date)
-        props = {}
-        for line in prop_content[1:]:
-            key, value = line.split("=")
-            props[key] = value
-
-        # parse measurement date-time
-        fmt = '%Y-%m-%d %H:%M:%S %Z%z'
-        utc = pytz.utc
-        props["timestamp"] = utc.localize(parser.parse(prop_content[0][1:], dayfirst=True)).strftime(fmt)
-
-        return props
+        # load general and shared header.properties file from zipfile
+        root = ForceArchive(self.file_path).read_properties('header.properties')
+        shared = ForceArchive(self.file_path).read_properties('shared-data/header.properties')
+        return {**root, **shared}
 
     # noinspection PyPep8Naming
     def get_channel_numbers(self):
@@ -154,7 +157,7 @@ class Properties:
         :rtype: dict
         """
         channel_numbers = {"vDeflection": None, "hDeflection": None, "height": None, "capacitiveSensorHeight": None}
-        for key, value in self.prop_dict.items():
+        for key, value in self.general.items():
             if value == "vDeflection":
                 channel_numbers[value] = re.search(r'(?<=lcd-info\.)\d(?=\.channel.name)', key).group()
             if value == "hDeflection":
@@ -176,19 +179,29 @@ class Properties:
 
         self.conversion_factors["vDeflection"] = {}
         self.conversion_factors["vDeflection"]["raw multiplier"] = \
-            self.prop_dict["{}multiplier".format(encoder)]
+            self.general["{}multiplier".format(encoder)]
         self.conversion_factors["vDeflection"]["raw offset"] = \
-            self.prop_dict["{}offset".format(encoder)]
+            self.general["{}offset".format(encoder)]
         self.conversion_factors["vDeflection"]["distance multiplier"] = \
-            self.prop_dict["{}distance.scaling.multiplier".format(conversion)]
+            self.general["{}distance.scaling.multiplier".format(conversion)]
         self.conversion_factors["vDeflection"]["distance offset"] = \
-            self.prop_dict["{}distance.scaling.offset".format(conversion)]
+            self.general["{}distance.scaling.offset".format(conversion)]
         self.conversion_factors["vDeflection"]["force multiplier"] = \
-            self.prop_dict["{}force.scaling.multiplier".format(conversion)]
+            self.general["{}force.scaling.multiplier".format(conversion)]
         self.conversion_factors["vDeflection"]["force offset"] = \
-            self.prop_dict["{}force.scaling.offset".format(conversion)]
+            self.general["{}force.scaling.offset".format(conversion)]
 
     # noinspection SpellCheckingInspection
     def extract_specs(self):
         """Extracts any kind of infos from the header, like units and the like"""
-        self.units["vDeflection"] = self.prop_dict["lcd-info.1.conversion-set.conversion.force.scaling.unit.unit"]
+        self.units["vDeflection"] = self.general["lcd-info.1.conversion-set.conversion.force.scaling.unit.unit"]
+
+    def extract_segment_props(self):
+        props = {}
+        num_segments = int(self.general['force-scan-series.force-segments.count'])
+        for segment in range(num_segments):
+            segment_props = ForceArchive(self.file_path).read_properties(
+                'segments/{}/segment-header.properties'.format(segment))
+            # noinspection SpellCheckingInspection
+            props[segment_props['force-segment-header.name.name'].replace('-cellhesion200', '')] = segment_props
+        return props

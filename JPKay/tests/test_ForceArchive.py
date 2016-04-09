@@ -25,14 +25,14 @@ class TestXmlConversion:
     def test_read_properties(self, sample_force_file):
         sample = ForceArchive(sample_force_file)
         # noinspection SpellCheckingInspection
-        assert sample.read_properties('header.properties')[1] == 'jpk-data-file=spm-forcefile'
+        assert sample.read_properties('header.properties')['jpk-data-file'] == 'spm-forcefile'
         with pytest.raises(ValueError):
             sample.read_properties('false.file')
 
     def test_read_data(self, sample_force_file):
         sample = ForceArchive(sample_force_file)
         # noinspection SpellCheckingInspection
-        assert isinstance(sample.read_data('segments/2/channels/vDeflection.dat'), ndarray)
+        assert isinstance(sample.read_data('segments/0/channels/vDeflection.dat'), ndarray)
         with pytest.raises(ValueError):
             sample.read_data('false.file')
-        assert sample.read_data('segments/2/channels/vDeflection.dat').shape == (1000, 1)
+        assert sample.read_data('segments/0/channels/vDeflection.dat').shape == (1000, 1)

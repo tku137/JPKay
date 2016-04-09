@@ -7,13 +7,13 @@ from JPKay.core.data_structures import Properties
 
 
 # noinspection PyShadowingNames
-@pytest.mark.usefixtures("sample_force_file", "java_prop_dict")
+@pytest.mark.usefixtures("sample_force_file", "general_prop_dict", "segments_prop_dict")
 class TestXmlConversion:
 
-    def test_load_java_props(self, sample_force_file, java_prop_dict):
+    def test_load_java_props(self, sample_force_file, general_prop_dict):
         props = Properties(file_path=sample_force_file)
-        loaded_props = props.prop_dict
-        with open(java_prop_dict) as infile:
+        loaded_props = props.general
+        with open(general_prop_dict) as infile:
             original_props = json.load(infile)
         assert original_props == loaded_props
 
@@ -40,3 +40,10 @@ class TestXmlConversion:
         props = Properties(file_path=sample_force_file)
         props.extract_specs()
         assert props.units["vDeflection"] == "N"
+
+    def test_extract_segment_props(self, sample_force_file, segments_prop_dict):
+        props = Properties(file_path=sample_force_file)
+        loaded_props = props.segments
+        with open(segments_prop_dict) as infile:
+            original_props = json.load(infile)
+        assert original_props == loaded_props
