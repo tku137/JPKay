@@ -129,8 +129,7 @@ class Properties:
         self.channel_numbers = self.get_channel_numbers()
 
         # extract raw conversion factors and other specifications like units and the lik
-        self.conversion_factors = {}
-        self.extract_conversion_factors()
+        self.conversion_factors = self.extract_conversion_factors()
         self.units = {}
         self.extract_specs()
 
@@ -177,19 +176,15 @@ class Properties:
         encoder = "{}encoder.scaling.".format(channel)
         conversion = "{}conversion-set.conversion.".format(channel)
 
-        self.conversion_factors["vDeflection"] = {}
-        self.conversion_factors["vDeflection"]["raw multiplier"] = \
-            self.general["{}multiplier".format(encoder)]
-        self.conversion_factors["vDeflection"]["raw offset"] = \
-            self.general["{}offset".format(encoder)]
-        self.conversion_factors["vDeflection"]["distance multiplier"] = \
-            self.general["{}distance.scaling.multiplier".format(conversion)]
-        self.conversion_factors["vDeflection"]["distance offset"] = \
-            self.general["{}distance.scaling.offset".format(conversion)]
-        self.conversion_factors["vDeflection"]["force multiplier"] = \
-            self.general["{}force.scaling.multiplier".format(conversion)]
-        self.conversion_factors["vDeflection"]["force offset"] = \
-            self.general["{}force.scaling.offset".format(conversion)]
+        factors = {"vDeflection": {}}
+        factors["vDeflection"]["raw multiplier"] = self.general["{}multiplier".format(encoder)]
+        factors["vDeflection"]["raw offset"] = self.general["{}offset".format(encoder)]
+        factors["vDeflection"]["distance multiplier"] = self.general["{}distance.scaling.multiplier".format(conversion)]
+        factors["vDeflection"]["distance offset"] = self.general["{}distance.scaling.offset".format(conversion)]
+        factors["vDeflection"]["force multiplier"] = self.general["{}force.scaling.multiplier".format(conversion)]
+        factors["vDeflection"]["force offset"] = self.general["{}force.scaling.offset".format(conversion)]
+
+        return factors
 
     # noinspection SpellCheckingInspection
     def extract_specs(self):
@@ -203,5 +198,25 @@ class Properties:
             segment_props = ForceArchive(self.file_path).read_properties(
                 'segments/{}/segment-header.properties'.format(segment))
             # noinspection SpellCheckingInspection
-            props[segment_props['force-segment-header.name.name'].replace('-cellhesion200', '')] = segment_props
+            name_jpk = segment_props['force-segment-header.name.name'].replace('-cellhesion200', '')
+            normal_name = self.convert_segment_name(name_jpk)
+            props[normal_name] = segment_props
+            props[normal_name]["name_jpk"] = name_jpk
+            props[normal_name]["name"] = normal_name
+            props[normal_name]["segment_number"] = str(segment)
+
         return props
+
+    @staticmethod
+    def convert_segment_name(jpk_name):
+
+        if jpk_name == 'extend':
+            real_name = 'approach'
+        elif jpk_name == 'pause-at-end':
+            real_name = 'contact'
+        elif jpk_name == 'pause-at-start':
+            real_name = 'pause'
+        else:
+            real_name = jpk_name
+
+        return real_name

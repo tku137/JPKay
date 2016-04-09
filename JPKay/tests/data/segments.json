@@ -1,5 +1,8 @@
 {
 	"retract": {
+		"name_jpk": "retract",
+		"name": "retract",
+		"segment_number": "0",
 		"channel.height.lcd-info.*": "0",
 		"force-segment-header.force-scan-flags.surface-incorrect": "false",
 		"force-segment-header.type": "spm-force-segment-header",
