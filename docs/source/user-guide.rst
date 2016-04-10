@@ -1,4 +1,4 @@
-The CellHesion Class
-====================
+User Guide
+==========
 
-.. autoclass:: JPKay.core.data_structures.CellHesion
+t.b.a.

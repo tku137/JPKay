@@ -146,7 +146,10 @@ class Properties:
         # load general and shared header.properties file from zipfile
         root = ForceArchive(self.file_path).read_properties('header.properties')
         shared = ForceArchive(self.file_path).read_properties('shared-data/header.properties')
-        return {**root, **shared}
+        full = {}
+        full.update(root)
+        full.update(shared)
+        return full
 
     # noinspection PyPep8Naming
     def get_channel_numbers(self):

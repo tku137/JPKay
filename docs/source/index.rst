@@ -9,8 +9,8 @@ JPKay - A JPK CellHesion Toolbox
 This Project aims to provide a comprehensive toolbox to load, analyze and plot JPK CellHeasion200 force-files. It is
 currently under heavy development.
 
-User-Guide
-==========
+Documentation
+=============
 
 .. toctree::
    :maxdepth: 0
