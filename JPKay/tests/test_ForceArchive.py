@@ -10,7 +10,7 @@ from JPKay.core.data_structures import ForceArchive
 
 # noinspection PyShadowingNames
 @pytest.mark.usefixtures("sample_force_file")
-class TestXmlConversion:
+class TestForceArchive:
 
     def test_instantiation(self, sample_force_file):
         sample = ForceArchive(sample_force_file)

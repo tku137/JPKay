@@ -10,7 +10,7 @@ from JPKay.core.data_structures import Properties
 
 # noinspection PyShadowingNames
 @pytest.mark.usefixtures("sample_force_file", "general_prop_dict", "segments_prop_dict")
-class TestXmlConversion:
+class TestPropertyReader:
 
     def test_load_java_props(self, sample_force_file, general_prop_dict):
         props = Properties(file_path=sample_force_file)

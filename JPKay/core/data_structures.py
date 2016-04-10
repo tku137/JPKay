@@ -174,7 +174,7 @@ class Properties:
         extracted, because it is the only one calibrated during AFM measurements
 
         :return: dict with conversion factors
-        :rtype: dict[np.ndarray]
+        :rtype: dict
         """
 
         # get some info to reduce ridiculously long java-prop names
@@ -223,6 +223,14 @@ class Properties:
         self.units["height"] = self.general[height_unit]
 
     def extract_segment_props(self):
+        """
+        Extract properties for each data segment. Additionally, JPKs segment names are converted to a more useful
+        naming scheme: approach, contact, retract, pause. Also the much needed segment number is stored to use during
+        data loading. Properties for each segment are stored in a dictionary under the respective segment names as key.
+
+        :return: per-segment properties
+        :rtype: dict
+        """
         props = {}
         num_segments = int(self.general['force-scan-series.force-segments.count'])
         for segment in range(num_segments):
@@ -240,7 +248,7 @@ class Properties:
 
     @staticmethod
     def convert_segment_name(jpk_name):
-
+        """Convert JPKs segment names to useful ones"""
         if jpk_name == 'extend':
             real_name = 'approach'
         elif jpk_name == 'pause-at-end':
