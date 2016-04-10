@@ -7,6 +7,7 @@ import dateutil.parser as parser
 import pytz
 from struct import unpack
 import numpy as np
+import pandas as pd
 
 
 class ForceArchive:
@@ -259,3 +260,146 @@ class Properties:
             real_name = jpk_name
 
         return real_name
+
+
+class JPKForce:
+    def __init__(self, force_file):
+
+        # parse and check file path
+        if os.path.isfile(force_file):
+            self.file = force_file
+        else:
+            raise ValueError("file does not exist")
+
+        #
+        self.archive = ForceArchive(file_path=self.file)
+        self.properties = Properties(file_path=self.file)
+
+        #
+        self.data = self.load_data()
+
+    # noinspection PyPep8Naming
+    def load_encoded_data_segment(self, segment):
+        """
+
+        :param segment: data segment to load
+        :type segment: str
+        :return: vDeflection and height
+        """
+
+        # get data locations
+        segment_number = self.properties.segments[segment]['segment_number']
+        vDeflection_file = 'segments/{}/channels/vDeflection.dat'.format(segment_number)
+        height_file = 'segments/{}/channels/height.dat'.format(segment_number)
+
+        # load encoded data from archive
+        vDeflection = self.archive.read_data(vDeflection_file)
+        height = self.archive.read_data(height_file)
+
+        return vDeflection, height
+
+    # noinspection PyPep8Naming
+    def load_data(self):
+        """
+        Load converted data to DataFrame. See :func:`construct_df` for DataFrame structure.
+
+        :return: force/height data
+        :rtype: pd.DataFrame
+        """
+        df = self.construct_df()
+
+        for segment in list(self.properties.segments.keys()):
+
+            # load raw data
+            vDeflection_raw, height_raw = self.load_encoded_data_segment(segment)
+
+            # convert data to normal physical units
+            vDeflection = self.convert_data('vDeflection', vDeflection_raw)
+            height = self.convert_data('height', height_raw)
+
+            df.loc[:, (segment, 'force')] = pd.Series(vDeflection.squeeze())
+            df.loc[:, (segment, 'height')] = pd.Series(height.squeeze())
+
+        return df
+
+    def convert_data(self, channel, data):
+        """
+        Convert specific data from specific channel from encoded integer format to physical quantity.
+
+        Each channel has it's own conversion factors and formulas, so the correct channel has to be provided.
+
+        :param channel: data channel
+        :type channel: str
+        :param data: encoded data
+        :type data: np.ndarray
+        :return: converted data
+        :rtype: np.array
+        """
+        if not isinstance(data, np.ndarray):
+            raise ValueError("data has to be numpy array")
+
+        # convert vDeflection from encoded to distance to force with linear conversion factors
+        # the returned object is already a numpy ndarray in unit Newton (N)
+        if channel == 'vDeflection':
+
+            raw_m = self.properties.conversion_factors[channel]["raw multiplier"]
+            raw_n = self.properties.conversion_factors[channel]["raw offset"]
+
+            dist_m = self.properties.conversion_factors[channel]["distance multiplier"]
+            dist_n = self.properties.conversion_factors[channel]["distance offset"]
+
+            force_m = self.properties.conversion_factors[channel]["force multiplier"]
+            force_n = self.properties.conversion_factors[channel]["force offset"]
+
+            converted_data = ((raw_m * data + raw_n) * dist_m + dist_n) * force_m + force_n
+
+            return converted_data
+
+        # convert height from encoded to calibrated height
+        # the returned object is already a numpy ndarray in unit Meter (m)
+        elif channel == 'height':
+            raw_m = self.properties.conversion_factors[channel]["raw multiplier"]
+            raw_n = self.properties.conversion_factors[channel]["raw offset"]
+
+            cal_m = self.properties.conversion_factors[channel]["calibrated multiplier"]
+            cal_n = self.properties.conversion_factors[channel]["calibrated offset"]
+
+            converted_data = (raw_m * data + raw_n) * cal_m + cal_n
+
+            return converted_data
+
+        else:
+            raise ValueError("not a valid channel")
+
+    @staticmethod
+    def construct_df():
+        """
+        Construct a pandas DataFrame to store force and height data for each segment. Segments are called:
+
+        - approach: cantilever approaches sample
+        - contact: cantilever is in contact with the sample
+        - retract: cantilever retracts from the sample
+        - pause: cantilever pauses between consecutive probings
+
+        The DataFrame has hierarchical MultiIndex columns and can be filled with data using:
+
+        >>> jpk = JPKForce()
+        >>> df = jpk.construct_df()
+        >>> df.loc[:, ('retract', 'force')] = pd.Series(np.random.rand(10))
+
+        +---------+-------+--------+-------+--------+-------+--------+-------+--------+
+        | segment | approach       | contact        | retract        | pause          |
+        +---------+-------+--------+-------+--------+-------+--------+-------+--------+
+        | channel | force | height | force | height | force | height | force | height |
+        +=========+=======+========+=======+========+=======+========+=======+========+
+        | 0       | 4e-11 | 0.0001 | 5e-11 | 0.0001 | 5e-11 | 0.0001 | 4e-11 | 0.0001 |
+        +---------+-------+--------+-------+--------+-------+--------+-------+--------+
+        | ...     |  ...  |  ...   |  ...  |  ...   |  ...  |  ...   |  ...  |  ...   |
+        +---------+-------+--------+-------+--------+-------+--------+-------+--------+
+
+        :return: DataFrame blueprint
+        :rtype: pd.DataFrame
+        """
+        iterable = [['approach', 'contact', 'retract', 'pause'], ['force', 'height']]
+        index = pd.MultiIndex.from_product(iterable, names=['segment', 'channel'])
+        return pd.DataFrame(columns=index)
