@@ -262,7 +262,7 @@ class Properties:
         return real_name
 
 
-class JPKForce:
+class CellHesion:
     def __init__(self, force_file):
 
         # parse and check file path
