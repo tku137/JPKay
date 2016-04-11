@@ -13,7 +13,7 @@ Documentation
 =============
 
 .. toctree::
-   :maxdepth: 0
+   :maxdepth: 2
 
    user-guide
    api
