@@ -74,7 +74,7 @@ class ForceArchive:
         :param content_path: internal path to the force-archive file
         :type content_path: str
         :return: raw data
-        :rtype: np.ndarray
+        :rtype: numpy.ndarray
         """
 
         if not os.path.basename(content_path).endswith(".dat"):
@@ -103,9 +103,9 @@ class Properties:
 
     - **attributes**
 
-    vDeflection_channel_number: internal number of vDeflection channel raw data
-    conversion_factors: dictionary containing important information
-    units: dictionary containing channel units
+        - vDeflection_channel_number: internal number of vDeflection channel raw data
+        - conversion_factors: dictionary containing important information
+        - units: dictionary containing channel units
 
     - **example usage**::
 
@@ -334,7 +334,7 @@ class CellHesion:
         Load converted data to DataFrame. See :func:`construct_df` for DataFrame structure.
 
         :return: force/height data
-        :rtype: pd.DataFrame
+        :rtype: pandas.DataFrame
         """
         df = self.construct_df()
 
@@ -361,9 +361,9 @@ class CellHesion:
         :param channel: data channel
         :type channel: str
         :param data: encoded data
-        :type data: np.ndarray
+        :type data: numpy.ndarray
         :return: converted data
-        :rtype: np.array
+        :rtype: numpy.array
         """
         if not isinstance(data, np.ndarray):
             raise ValueError("data has to be numpy array")
@@ -407,7 +407,7 @@ class CellHesion:
         Construct a pandas DataFrame to store force and height data for each segment.
 
         :return: DataFrame blueprint
-        :rtype: pd.DataFrame
+        :rtype: pandas.DataFrame
         """
         iterable = [['approach', 'contact', 'retract', 'pause'], ['force', 'height']]
         index = pd.MultiIndex.from_product(iterable, names=['segment', 'channel'])

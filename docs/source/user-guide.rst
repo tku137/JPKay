@@ -68,13 +68,17 @@ the height signal is in units of Meter (m).
 | ...     |  ...  |  ...   |  ...  |  ...   |  ...  |  ...   |  ...  |  ...   |
 +---------+-------+--------+-------+--------+-------+--------+-------+--------+
 
-The DataFrame has a hierarchical MultiIndex as column names and can be filled/edited with data using both
-standard DataFrame column indexing methods ``sample.data.retract.force`` or ``sample.data['retract']['force']``.
+The DataFrame has a hierarchical MultiIndex as column names and can be accessed using both standard DataFrame column
+indexing methods ``sample.data.retract.force`` or ``sample.data['retract']['force']``. Manipulating data in-place has to
+happen using the ``loc`` method due to the usage of MultiIndexes (see
+`official documentation <http://pandas.pydata.org/pandas-docs/stable/indexing.html#why-does-assignment-fail-when-using
+-chained-indexing>`_ for further explanation).
 
 >>> jpk_file = r'path/to/jpk-force/file'
 >>> sample = CellHesion(force_file=jpk_file)
->>> sample.data.retract.force = pd.Series(np.random.rand(10))
->>> sample.data['retract']['force'] = pd.Series(np.random.rand(10))
+>>> sample.data.retract.force.head()  # access using method
+>>> sample.data['retract']['force'].head()  # access using dict-keys
+>>> sample.data.loc[0, ('retract', 'force')] *= 10**12  # convert to pN
 
 Example Usage
 ~~~~~~~~~~~~~
