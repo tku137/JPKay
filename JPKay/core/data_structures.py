@@ -9,6 +9,8 @@ from struct import unpack
 import numpy as np
 import pandas as pd
 
+import JPKay.core.JPKayError as JPKayError
+
 
 class ForceArchive:
     """
@@ -25,7 +27,7 @@ class ForceArchive:
     def __init__(self, file_path):
         self._zip_file = ZipFile(file_path)
         if not self.read_properties('header.properties')['jpk-data-file'] == 'spm-forcefile':
-            raise ValueError("not a valid spm-forcefile!")
+            raise JPKayError.ForceFileError("not a valid spm-forcefile!")
         self.contents = self.ls()
 
     def ls(self):
@@ -45,7 +47,7 @@ class ForceArchive:
         """
 
         if not os.path.basename(content_path).endswith(".properties"):
-            raise ValueError("this content path is not a property file")
+            raise JPKayError.ContentError(content_path, "is not a property file")
 
         try:
             with self._zip_file.open(content_path) as file:
@@ -54,8 +56,14 @@ class ForceArchive:
             # parse prop dictionary (without header date)
             props = {}
             for line in content[1:]:
-                key, value = line.split("=")
-                props[key] = value
+                if '=' in line:
+                    key, value = line.split("=")
+                    if key and value:
+                        props[key] = value
+                    else:
+                        raise JPKayError.PropertyError(line, 'key/value missing, file corrupted!')
+                else:
+                    raise JPKayError.PropertyError(line, 'has no "=", file corrupted!')
 
             # parse measurement date-time
             fmt = '%Y-%m-%d %H:%M:%S %Z%z'
@@ -78,7 +86,7 @@ class ForceArchive:
         """
 
         if not os.path.basename(content_path).endswith(".dat"):
-            raise ValueError("this content path is not a data file")
+            raise JPKayError.ContentError(content_path, "is not a data file")
 
         try:
             # read binary data
@@ -163,12 +171,14 @@ class Properties:
         for key, value in self.general.items():
             if value == "vDeflection":
                 channel_numbers[value] = re.search(r'(?<=lcd-info\.)\d(?=\.channel.name)', key).group()
-            if value == "hDeflection":
+            elif value == "hDeflection":
                 channel_numbers[value] = re.search(r'(?<=lcd-info\.)\d(?=\.channel.name)', key).group()
-            if value == "height":
+            elif value == "height":
                 channel_numbers[value] = re.search(r'(?<=lcd-info\.)\d(?=\.channel.name)', key).group()
-            if value == "capacitiveSensorHeight":
+            elif value == "capacitiveSensorHeight":
                 channel_numbers[value] = re.search(r'(?<=lcd-info\.)\d(?=\.channel.name)', key).group()
+            else:
+                raise JPKayError.ChannelError(value, 'unknown data channel')
         return channel_numbers
 
     # noinspection PyPep8Naming
@@ -192,39 +202,50 @@ class Properties:
 
         factors = {"vDeflection": {}, "height": {}}
 
-        # parse vDeflection conversion factors
-        factors["vDeflection"]["raw multiplier"] = \
-            np.array(float(self.general["{}multiplier".format(vDeflection_encoder)]))
-        factors["vDeflection"]["raw offset"] = np.array(float(self.general["{}offset".format(vDeflection_encoder)]))
-        factors["vDeflection"]["distance multiplier"] = \
-            np.array(float(self.general["{}distance.scaling.multiplier".format(vDeflection_conversion)]))
-        factors["vDeflection"]["distance offset"] = \
-            np.array(float(self.general["{}distance.scaling.offset".format(vDeflection_conversion)]))
-        factors["vDeflection"]["force multiplier"] = \
-            np.array(float(self.general["{}force.scaling.multiplier".format(vDeflection_conversion)]))
-        factors["vDeflection"]["force offset"] = \
-            np.array(float(self.general["{}force.scaling.offset".format(vDeflection_conversion)]))
+        try:
+            # parse vDeflection conversion factors
+            factors["vDeflection"]["raw multiplier"] = \
+                np.array(float(self.general["{}multiplier".format(vDeflection_encoder)]))
+            factors["vDeflection"]["raw offset"] = \
+                np.array(float(self.general["{}offset".format(vDeflection_encoder)]))
+            factors["vDeflection"]["distance multiplier"] = \
+                np.array(float(self.general["{}distance.scaling.multiplier".format(vDeflection_conversion)]))
+            factors["vDeflection"]["distance offset"] = \
+                np.array(float(self.general["{}distance.scaling.offset".format(vDeflection_conversion)]))
+            factors["vDeflection"]["force multiplier"] = \
+                np.array(float(self.general["{}force.scaling.multiplier".format(vDeflection_conversion)]))
+            factors["vDeflection"]["force offset"] = \
+                np.array(float(self.general["{}force.scaling.offset".format(vDeflection_conversion)]))
 
-        # parse height conversion factors
-        factors["height"]["raw multiplier"] = np.array(float(self.general["{}multiplier".format(height_encoder)]))
-        factors["height"]["raw offset"] = np.array(float(self.general["{}offset".format(height_encoder)]))
-        factors["height"]["calibrated multiplier"] = \
-            np.array(float(self.general["{}nominal.scaling.multiplier".format(height_conversion)]))
-        factors["height"]["calibrated offset"] = \
-            np.array(float(self.general["{}nominal.scaling.offset".format(height_conversion)]))
+            # parse height conversion factors
+            factors["height"]["raw multiplier"] = \
+                np.array(float(self.general["{}multiplier".format(height_encoder)]))
+            factors["height"]["raw offset"] = \
+                np.array(float(self.general["{}offset".format(height_encoder)]))
+            factors["height"]["calibrated multiplier"] = \
+                np.array(float(self.general["{}nominal.scaling.multiplier".format(height_conversion)]))
+            factors["height"]["calibrated offset"] = \
+                np.array(float(self.general["{}nominal.scaling.offset".format(height_conversion)]))
+        except KeyError as e:
+            raise JPKayError.PropertyError(e.args[0], 'does not exist in properties! ForceFile corrupted?')
 
         return factors
 
     # noinspection SpellCheckingInspection,PyPep8Naming
     def extract_specs(self):
         """Extracts any kind of infos from the header, like units and the like"""
-        vDeflection_unit = "lcd-info.{}.conversion-set.conversion.force.scaling.unit.unit".format(
-            self.channel_numbers["vDeflection"])
-        self.units["vDeflection"] = self.general[vDeflection_unit]
 
-        height_unit = "lcd-info.{}.conversion-set.conversion.nominal.scaling.unit.unit".format(
-            self.channel_numbers["height"])
-        self.units["height"] = self.general[height_unit]
+        try:
+            vDeflection_unit = "lcd-info.{}.conversion-set.conversion.force.scaling.unit.unit".format(
+                self.channel_numbers["vDeflection"])
+            self.units["vDeflection"] = self.general[vDeflection_unit]
+
+            height_unit = "lcd-info.{}.conversion-set.conversion.nominal.scaling.unit.unit".format(
+                self.channel_numbers["height"])
+            self.units["height"] = self.general[height_unit]
+
+        except KeyError as e:
+            raise JPKayError.PropertyError(e.args[0], 'does not exist in properties! ForceFile corrupted?')
 
     def extract_segment_props(self):
         """
@@ -235,18 +256,22 @@ class Properties:
         :return: per-segment properties
         :rtype: dict
         """
-        props = {}
-        num_segments = int(self.general['force-scan-series.force-segments.count'])
-        for segment in range(num_segments):
-            segment_props = ForceArchive(self.file_path).read_properties(
-                'segments/{}/segment-header.properties'.format(segment))
-            # noinspection SpellCheckingInspection
-            name_jpk = segment_props['force-segment-header.name.name'].replace('-cellhesion200', '')
-            normal_name = self.convert_segment_name(name_jpk)
-            props[normal_name] = segment_props
-            props[normal_name]["name_jpk"] = name_jpk
-            props[normal_name]["name"] = normal_name
-            props[normal_name]["segment_number"] = str(segment)
+
+        try:
+            props = {}
+            num_segments = int(self.general['force-scan-series.force-segments.count'])
+            for segment in range(num_segments):
+                segment_props = ForceArchive(self.file_path).read_properties(
+                    'segments/{}/segment-header.properties'.format(segment))
+                # noinspection SpellCheckingInspection
+                name_jpk = segment_props['force-segment-header.name.name'].replace('-cellhesion200', '')
+                normal_name = self.convert_segment_name(name_jpk)
+                props[normal_name] = segment_props
+                props[normal_name]["name_jpk"] = name_jpk
+                props[normal_name]["name"] = normal_name
+                props[normal_name]["segment_number"] = str(segment)
+        except KeyError as e:
+            raise JPKayError.PropertyError(e.args[0], 'does not exist in properties! ForceFile corrupted?')
 
         return props
 
@@ -296,7 +321,7 @@ class CellHesion:
         if os.path.isfile(force_file):
             self.file = force_file
         else:
-            raise ValueError("file does not exist")
+            raise JPKayError.ForceFileError("file does not exist")
 
         #
         self.archive = ForceArchive(file_path=self.file)
@@ -366,7 +391,7 @@ class CellHesion:
         :rtype: numpy.array
         """
         if not isinstance(data, np.ndarray):
-            raise ValueError("data has to be numpy array")
+            raise TypeError("data has to be numpy array")
 
         # convert vDeflection from encoded to distance to force with linear conversion factors
         # the returned object is already a numpy ndarray in unit Newton (N)
@@ -399,7 +424,7 @@ class CellHesion:
             return converted_data
 
         else:
-            raise ValueError("not a valid channel")
+            raise JPKayError.ChannelError(channel, "not a valid data channel")
 
     @staticmethod
     def construct_df():
