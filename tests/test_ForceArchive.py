@@ -6,6 +6,7 @@ from zipfile import ZipInfo
 
 from numpy import ndarray
 from JPKay.core.data_structures import ForceArchive
+import JPKay.core.JPKayError as JPKayError
 
 
 # noinspection PyShadowingNames
@@ -26,13 +27,13 @@ class TestForceArchive:
         sample = ForceArchive(sample_force_file)
         # noinspection SpellCheckingInspection
         assert sample.read_properties('header.properties')['jpk-data-file'] == 'spm-forcefile'
-        with pytest.raises(ValueError):
+        with pytest.raises(JPKayError.ContentError):
             sample.read_properties('false.file')
 
     def test_read_data(self, sample_force_file):
         sample = ForceArchive(sample_force_file)
         # noinspection SpellCheckingInspection
         assert isinstance(sample.read_data('segments/0/channels/vDeflection.dat'), ndarray)
-        with pytest.raises(ValueError):
-            sample.read_data('false.file')
+        with pytest.raises(JPKayError.ContentError):
+            sample.read_properties('false.file')
         assert sample.read_data('segments/0/channels/vDeflection.dat').shape == (1000, 1)

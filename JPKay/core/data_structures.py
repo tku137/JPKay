@@ -58,10 +58,10 @@ class ForceArchive:
             for line in content[1:]:
                 if '=' in line:
                     key, value = line.split("=")
-                    if key and value:
+                    if key:
                         props[key] = value
                     else:
-                        raise JPKayError.PropertyError(line, 'key/value missing, file corrupted!')
+                        raise JPKayError.PropertyError(line, 'key missing, file corrupted!')
                 else:
                     raise JPKayError.PropertyError(line, 'has no "=", file corrupted!')
 
@@ -171,14 +171,15 @@ class Properties:
         for key, value in self.general.items():
             if value == "vDeflection":
                 channel_numbers[value] = re.search(r'(?<=lcd-info\.)\d(?=\.channel.name)', key).group()
-            elif value == "hDeflection":
+            if value == "hDeflection":
                 channel_numbers[value] = re.search(r'(?<=lcd-info\.)\d(?=\.channel.name)', key).group()
-            elif value == "height":
+            if value == "height":
                 channel_numbers[value] = re.search(r'(?<=lcd-info\.)\d(?=\.channel.name)', key).group()
-            elif value == "capacitiveSensorHeight":
+            if value == "capacitiveSensorHeight":
                 channel_numbers[value] = re.search(r'(?<=lcd-info\.)\d(?=\.channel.name)', key).group()
-            else:
-                raise JPKayError.ChannelError(value, 'unknown data channel')
+        for channel, number in channel_numbers.items():
+            if not number:
+                raise JPKayError.ChannelError(channel, 'unknown data channel')
         return channel_numbers
 
     # noinspection PyPep8Naming
