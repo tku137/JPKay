@@ -44,7 +44,7 @@ Plotting
 |retract|
 
 *This is only a teaser; the full documentation can be found at*
-`Read the Docs <http://jpkay.readthedocs.org/>`_
+`Read the Docs <http://jpkay.readthedocs.io/>`_
 
 Authors
 -------
