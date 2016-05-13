@@ -10,6 +10,8 @@ import numpy as np
 import pandas as pd
 
 import JPKay.core.JPKayError as JPKayError
+from JPKay.processing.step_detection import get_step_positions
+from JPKay.processing.curve_features import get_global_minimum
 
 
 class ForceArchive:
@@ -438,3 +440,21 @@ class CellHesion:
         iterable = [['approach', 'contact', 'retract', 'pause'], ['force', 'height']]
         index = pd.MultiIndex.from_product(iterable, names=['segment', 'channel'])
         return pd.DataFrame(columns=index)
+
+    def detect_steps(self, threshold=0.3, min_distance=50):
+        """
+        Detect steps in retract curve and return their positions as a list of integers.
+
+        :param threshold: step filter threshold
+        :type threshold: float
+        :param min_distance: minimum distance of steps
+        :type min_distance: int
+        :return: list of step positions
+        :rtype: list[int]
+        """
+        x = self.data.retract.height.values
+        y = self.data.retract.force.values
+        _, _, min_pos = get_global_minimum(x, y)
+        steps = get_step_positions(x[min_pos:], y[min_pos:], threshold, min_distance) + min_pos
+        return steps.tolist()
+
