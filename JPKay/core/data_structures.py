@@ -10,6 +10,9 @@ import numpy as np
 import pandas as pd
 
 import JPKay.core.JPKayError as JPKayError
+from JPKay.processing.step_detection import get_step_positions
+from JPKay.plot.plot_features import plot_retract, plot_steps
+from JPKay.processing.curve_features import get_global_minimum
 
 
 class ForceArchive:
@@ -376,6 +379,8 @@ class CellHesion:
             df.loc[:, (segment, 'force')] = pd.Series(vDeflection.squeeze())
             df.loc[:, (segment, 'height')] = pd.Series(height.squeeze())
 
+        df.fillna(method='pad', axis=0, inplace=True)
+
         return df
 
     def convert_data(self, channel, data):
@@ -438,3 +443,40 @@ class CellHesion:
         iterable = [['approach', 'contact', 'retract', 'pause'], ['force', 'height']]
         index = pd.MultiIndex.from_product(iterable, names=['segment', 'channel'])
         return pd.DataFrame(columns=index)
+
+    def detect_steps(self, threshold=0.3, min_distance=50):
+        """
+        Detect steps in retract curve and return their positions as a list of integers.
+
+        :param threshold: step filter threshold
+        :type threshold: float
+        :param min_distance: minimum distance of steps
+        :type min_distance: int
+        :return: list of step positions
+        :rtype: list[int]
+        """
+        x = self.data.retract.height.values
+        y = self.data.retract.force.values
+        _, _, min_pos = get_global_minimum(x, y)
+        steps = get_step_positions(x[min_pos:], y[min_pos:], threshold, min_distance) + min_pos
+        return steps.tolist()
+
+    def plot_retract(self, ax=None):
+        """
+        Plot the retract curve in meaningful units.
+        :param ax: matplotlib axis to plot to (optional)
+        """
+        plot_retract(self.data.retract.height.values, self.data.retract.force.values, ax)
+
+    def plot_steps(self, steps=None, ax=None):
+        """
+        Plot retract curve in meaningful units and overlay detected step positions. If no steps given,
+        they are detected on-thy-fly.
+
+        :param steps: list of step positions (optional)
+        :type steps: list[int]
+        :param ax: matplotlib axis to plot to (optional)
+        """
+        if not steps:
+            steps = self.detect_steps()
+        plot_steps(self.data.retract.height.values, self.data.retract.force.values, steps, ax)

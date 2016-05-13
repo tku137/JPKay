@@ -83,12 +83,30 @@ happen using the ``loc`` method due to the usage of MultiIndexes (see
 Example Usage
 ~~~~~~~~~~~~~
 
+Load a jpk-force file and plot its retract curve:
+
 >>> jpk_file = r'path/to/jpk-force/file'
 >>> sample = CellHesion(force_file=jpk_file)
->>> import matplotlib.pyplot as plt
->>> x = sample.data.retract.height * 10**6
->>> y = sample.data.retract.force * 10**12
->>> plt.plot(x, y)
->>> plt.xlabel("height [µm]"); plt.ylabel("force [pN]")
+>>> sample.plot_retract()
 
 .. image:: images/retract_curve.png
+
+Detect step positions:
+
+>>> sample.detect_steps()
+[1496, 1649, 1886, 2323, 3407, 4471, 4903, 5539, 41577]
+>>> sample.plot_steps()
+
+.. image:: images/retract_steps.png
+
+.. note::
+
+   Both commands above run the step detection on each execution and should only be used to have a "quick look". To
+   reduce CPU time, store the detected step list and hand over to the plotting method, like shown in the example below.
+
+Example usage of using optional plot parameters. Helpful to reduce CPU time or for further processing the step
+detection:
+
+>>> steps = sample.detect_steps()
+>>> fig, ax = subplots()
+>>> sample.plot_steps(steps=steps, ax=ax)
