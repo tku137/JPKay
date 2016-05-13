@@ -2,6 +2,7 @@
 
 import pytest
 
+import numpy as np
 import numpy.testing as npt
 from numpy import array
 import pandas.util.testing as pdt
@@ -29,8 +30,8 @@ class TestJpkForce:
 
         iterable = [['approach', 'contact', 'retract', 'pause'], ['force', 'height']]
         index = pd.MultiIndex.from_product(iterable, names=['segment', 'channel'])
-        data = array([-2.98158446715e-11, 3.90831266155e-05])
-        df = pd.DataFrame(columns=index)
+        data = array([-2.98158446715e-11, 3.90831266155e-05], dtype=np.float)
+        df = pd.DataFrame(columns=index, dtype=np.float)
         df.loc[0, 'retract'] = data
         pdt.assert_almost_equal(sample.data.loc[0], df.loc[0])
 
