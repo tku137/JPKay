@@ -379,6 +379,8 @@ class CellHesion:
             df.loc[:, (segment, 'force')] = pd.Series(vDeflection.squeeze())
             df.loc[:, (segment, 'height')] = pd.Series(height.squeeze())
 
+        df.fillna(method='pad', axis=0, inplace=True)
+
         return df
 
     def convert_data(self, channel, data):
