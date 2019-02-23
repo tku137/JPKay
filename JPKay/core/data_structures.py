@@ -137,6 +137,15 @@ class Properties:
         self.general = self.load_general_props()
         self.segments = self.extract_segment_props()
 
+        # what file version is it?
+        self.file_version = self.get_file_version()
+        if self.file_version == 4:
+            self._height_channel_name = "height"
+        elif self.file_version == 5:
+            self._height_channel_name = "measuredHeight"
+        else:
+            raise JPKayError.ForceFileError("File version not supported.")
+
         # set vDeflection channel number, always extract freshly because channel numbering seems to be inconsistent
         self.channel_numbers = self.get_channel_numbers()
 
@@ -144,6 +153,15 @@ class Properties:
         self.conversion_factors = self.extract_conversion_factors()
         self.units = {}
         self.extract_specs()
+
+    def get_file_version(self):
+        """
+        Returns the file version of the force-file. Important for loading, as v4 and v5 have different channels!
+
+        :return: file version
+        :rtype: int
+        """
+        return int(self.general['force-scan-series.description.source-software'][0])
 
     def load_general_props(self):
         """
@@ -170,19 +188,51 @@ class Properties:
         :return: dictionary with channel numbers
         :rtype: dict
         """
-        channel_numbers = {"vDeflection": None, "hDeflection": None, "height": None, "capacitiveSensorHeight": None}
-        for key, value in self.general.items():
-            if value == "vDeflection":
-                channel_numbers[value] = re.search(r'(?<=lcd-info\.)\d(?=\.channel.name)', key).group()
-            if value == "hDeflection":
-                channel_numbers[value] = re.search(r'(?<=lcd-info\.)\d(?=\.channel.name)', key).group()
-            if value == "height":
-                channel_numbers[value] = re.search(r'(?<=lcd-info\.)\d(?=\.channel.name)', key).group()
-            if value == "capacitiveSensorHeight":
-                channel_numbers[value] = re.search(r'(?<=lcd-info\.)\d(?=\.channel.name)', key).group()
-        for channel, number in channel_numbers.items():
-            if not number:
-                raise JPKayError.ChannelError(channel, 'unknown data channel')
+
+        # v4 channels
+        if self.file_version == 4:
+            channel_numbers = {"vDeflection": None, "hDeflection": None, "height": None, "capacitiveSensorHeight": None}
+            for key, value in self.general.items():
+                if value == "vDeflection":
+                    channel_numbers[value] = re.search(r'(?<=lcd-info\.)\d(?=\.channel.name)', key).group()
+                if value == "hDeflection":
+                    channel_numbers[value] = re.search(r'(?<=lcd-info\.)\d(?=\.channel.name)', key).group()
+                if value == "height":
+                    channel_numbers[value] = re.search(r'(?<=lcd-info\.)\d(?=\.channel.name)', key).group()
+                if value == "capacitiveSensorHeight":
+                    channel_numbers[value] = re.search(r'(?<=lcd-info\.)\d(?=\.channel.name)', key).group()
+            for channel, number in channel_numbers.items():
+                if not number:
+                    raise JPKayError.ChannelError(channel, 'unknown data channel')
+
+        # v5 channels
+        elif self.file_version == 5:
+            channel_numbers = {
+                "vDeflection": None,
+                "height": None,
+                "measuredHeight": None,
+                "cellhesion-height": None,
+                "capacitiveSensorHeight": None
+            }
+            for key, value in self.general.items():
+                if value == "vDeflection":
+                    channel_numbers[value] = re.search(r'(?<=lcd-info\.)\d(?=\.channel.name)', key).group()
+                if value == "height":
+                    channel_numbers[value] = re.search(r'(?<=lcd-info\.)\d(?=\.channel.name)', key).group()
+                if value == "measuredHeight":
+                    channel_numbers[value] = re.search(r'(?<=lcd-info\.)\d(?=\.channel.name)', key).group()
+                if value == "cellhesion-height":
+                    channel_numbers[value] = re.search(r'(?<=lcd-info\.)\d(?=\.channel.name)', key).group()
+                if value == "capacitiveSensorHeight":
+                    channel_numbers[value] = re.search(r'(?<=lcd-info\.)\d(?=\.channel.name)', key).group()
+            for channel, number in channel_numbers.items():
+                if not number:
+                    raise JPKayError.ChannelError(channel, 'unknown data channel')
+
+        # unknown file version
+        else:
+            raise JPKayError.ForceFileError("JPK Force-File version not supported. Only v4 and v5 are supported.")
+
         return channel_numbers
 
     # noinspection PyPep8Naming
@@ -200,7 +250,7 @@ class Properties:
         vDeflection_encoder = "{}encoder.scaling.".format(vDeflection_channel)
         vDeflection_conversion = "{}conversion-set.conversion.".format(vDeflection_channel)
 
-        height_channel = "lcd-info.{}.".format(self.channel_numbers["height"])
+        height_channel = "lcd-info.{}.".format(self.channel_numbers[self._height_channel_name])
         height_encoder = "{}encoder.scaling.".format(height_channel)
         height_conversion = "{}conversion-set.conversion.".format(height_channel)
 
@@ -245,7 +295,7 @@ class Properties:
             self.units["vDeflection"] = self.general[vDeflection_unit]
 
             height_unit = "lcd-info.{}.conversion-set.conversion.nominal.scaling.unit.unit".format(
-                self.channel_numbers["height"])
+                self.channel_numbers[self._height_channel_name])
             self.units["height"] = self.general[height_unit]
 
         except KeyError as e:
@@ -349,7 +399,7 @@ class CellHesion:
         # get data locations
         segment_number = self.properties.segments[segment]['segment_number']
         vDeflection_file = 'segments/{}/channels/vDeflection.dat'.format(segment_number)
-        height_file = 'segments/{}/channels/height.dat'.format(segment_number)
+        height_file = 'segments/{sn}/channels/{hn}.dat'.format(sn=segment_number, hn=self.properties._height_channel_name)
 
         # load encoded data from archive
         vDeflection = self.archive.read_data(vDeflection_file)
